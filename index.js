@@ -1,6 +1,7 @@
 const express = require('express')
 const app = express()
 const bodyParser = require('body-parser')
+const morgan = require('morgan')
 
 // parse application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({ extended: false }))
@@ -16,6 +17,20 @@ let people = [
         id: 1
     }
 ]
+
+morgan.token('host', function(req, res) {
+	return req.hostname;
+});
+
+// define custom logging format
+morgan.token('detailed', function (req, res, param) {                                    
+    return JSON.stringify(req.body);
+});  
+
+// register logging middleware and use custom logging format
+app.use(morgan('method :url :status :res[content-length] - :response-time ms :detailed'));
+
+// app.use(morgan(':method :url :status :res[content-length] - :response-time ms'));
 
 app.get('/', (req, res) => {
     res.send('<h1>Hello World!</h1>')
