@@ -3,6 +3,16 @@ const app = express()
 const bodyParser = require('body-parser')
 const morgan = require('morgan')
 const cors = require('cors')
+const mongoose = require('mongoose');
+require('dotenv').config();
+
+const Person = require('./models/person')
+
+const url = process.env.MONGODB_URI;
+
+mongoose.connect(url, { useNewUrlParser: true, useUnifiedTopology: true })
+    .then(result => {    console.log('connected to MongoDB')  }) 
+    .catch((error) => {    console.log('error connecting to MongoDB:', error.message)  })
 
 
 // parse application/x-www-form-urlencoded
@@ -12,14 +22,6 @@ app.use(bodyParser.urlencoded({ extended: false }))
 app.use(bodyParser.json())
 
 app.use(cors())
-
-let people = [
-    {
-        name: 'Arto Hellas',
-        number: '040-123456',
-        id: 1
-    }
-]
 
 morgan.token('host', function(req, res) {
 	return req.hostname;
@@ -46,23 +48,29 @@ app.get('/info', (req, res) => {
 })
   
 app.get('/api/persons', (req, res) => {
-    res.json(people)
+    Person.find().then((people)=> {
+        res.json(people);
+    }).catch(err => {
+        console.log(err);
+    });
 });
 
 app.get('/api/persons/:id', (request, response) => {
-    const id = Number(request.params.id)
-    const person = people.find(person => person.id === id)
-    if (person) {
-        response.json(person)
-    } else {
-        response.status(404).end()
-    }
+    const id = request.params.id;
+    Person.findById(id).then((people)=> {
+        res.json(people);
+    }).catch(err => {
+        console.log(err);
+    });
 });
 
 app.delete('/api/persons/:id', (request, response) => {
-    const id = Number(request.params.id)
-    people = people.filter(person => person.id !== id)
-    response.status(204).end()
+    const id = request.params.id;
+    Person.findByIdAndDelete(id).then((people)=> {
+        response.status(204).end()
+    }).catch(err => {
+        console.log(err);
+    });
 });
 
 const generateId = () => {
@@ -72,29 +80,33 @@ const generateId = () => {
     return maxId + 1
   }
   
-app.post('/api/persons', (request, response) => {
+app.post('/api/persons', async (request, response) => {
     const body = request.body
     if (!body.name || !body.number) {
       return response.status(400).json({ 
         error: 'The name or number is missing ' 
       })
     }
-    const personFind = people.find(person => person.name === body.name);
+
+    const personFind = await Person.findOne({ name: body.name });
+
     if (personFind) {
         return response.status(400).json({ 
           error: 'name must be unique' 
         })
     }
   
-    const person = {
-      name: body.name,
-      number: body.number,
-      id: generateId(),
-    }
+    const newPerson = new Person({
+        name: body.name,
+        number: body.number
+    });
+
+    newPerson.save()
+        .then(person => {
+            response.json(person)
+        })
   
-    people.push(person)
-  
-    response.json(people)
+    
 })
   
 const PORT = process.env.PORT || 3001
